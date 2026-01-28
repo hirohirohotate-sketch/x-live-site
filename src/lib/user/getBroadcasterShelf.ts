@@ -1,19 +1,26 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import type { BroadcastWithNotes, TimeFilter } from '@/types/home';
 
-interface GetRecentBroadcastsOptions {
+interface GetBroadcasterShelfOptions {
     limit?: number;
-    usernameFilter?: string;
     timeFilter?: TimeFilter;
 }
 
+interface BroadcasterShelfResult {
+    broadcasts: BroadcastWithNotes[];
+    count: number;
+    latestAt: string | null;
+}
+
 /**
- * 新着アーカイブを取得する（N+1回避）
+ * 配信者の棚データを取得する
  */
-export async function getRecentBroadcasts(
-    options: GetRecentBroadcastsOptions = {}
-): Promise<BroadcastWithNotes[]> {
-    const { limit = 30, usernameFilter, timeFilter = 'all' } = options;
+export async function getBroadcasterShelf(
+    username: string,
+    options: GetBroadcasterShelfOptions = {}
+): Promise<BroadcasterShelfResult> {
+    const { limit = 30, timeFilter = 'all' } = options;
+    const usernameLower = username.toLowerCase();
 
     const supabase = await createSupabaseServerClient();
 
@@ -32,15 +39,10 @@ export async function getRecentBroadcasts(
             preview_site,
             preview_fetch_status,
             preview_fetched_at
-        `)
-        .order('published_at', { ascending: false, nullsFirst: false })
+        `, { count: 'exact' })
+        .ilike('x_username', usernameLower) // 大文字小文字を区別せず検索
         .order('first_seen_at', { ascending: false })
         .limit(limit);
-
-    // username フィルタ
-    if (usernameFilter) {
-        query = query.ilike('x_username', `%${usernameFilter}%`);
-    }
 
     // 期間フィルタ
     if (timeFilter === '24h') {
@@ -51,15 +53,15 @@ export async function getRecentBroadcasts(
         query = query.or(`published_at.gte.${since},first_seen_at.gte.${since}`);
     }
 
-    const { data: broadcasts, error: broadcastsError } = await query;
+    const { data: broadcasts, error: broadcastsError, count } = await query;
 
     if (broadcastsError) {
-        console.error('Error fetching broadcasts:', broadcastsError);
-        return [];
+        console.error('Error fetching broadcaster shelf:', broadcastsError);
+        return { broadcasts: [], count: 0, latestAt: null };
     }
 
     if (!broadcasts || broadcasts.length === 0) {
-        return [];
+        return { broadcasts: [], count: 0, latestAt: null };
     }
 
     // 2) broadcast_notesをまとめて取得（N+1回避）
@@ -93,5 +95,9 @@ export async function getRecentBroadcasts(
         })),
     }));
 
-    return result;
+    return {
+        broadcasts: result,
+        count: count || 0,
+        latestAt: broadcasts[0]?.first_seen_at || null,
+    };
 }

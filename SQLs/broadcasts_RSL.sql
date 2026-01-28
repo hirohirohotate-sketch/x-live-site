@@ -1,20 +1,17 @@
 alter table public.broadcasts enable row level security;
 
--- 誰でも読める
 create policy "broadcasts_read_all"
 on public.broadcasts for select
 to public
 using (true);
 
--- MVP: 誰でも追加できる（将来は認証必須に変更予定）
-create policy "broadcasts_insert_public"
+create policy "broadcasts_insert_authenticated"
 on public.broadcasts for insert
-to public
+to authenticated
 with check (true);
 
--- MVP: 誰でも更新できる（将来は認証必須に変更予定）
-create policy "broadcasts_update_public"
+create policy "broadcasts_update_authenticated"
 on public.broadcasts for update
-to public
+to authenticated
 using (true)
 with check (true);

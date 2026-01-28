@@ -9,7 +9,17 @@ export interface BroadcastItem {
     x_username: string | null;
     published_at: string | null;
     first_seen_at: string;
+
+    // Previews
+    preview_title?: string | null;
+    preview_description?: string | null;
+    preview_image_url?: string | null;
+    preview_site?: 'x' | 'twitter' | 'other' | 'unknown' | null;
+    preview_fetch_status?: 'success' | 'partial' | 'fail' | 'fetching' | null;
+    preview_fetched_at?: string | null;
 }
+
+export type Broadcast = BroadcastItem;
 
 // notesの表示に必要なフィールド
 export interface BroadcastNote {

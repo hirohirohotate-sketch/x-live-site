@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Style Embed Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        discord: {
+                            bg: '#313338',        // 新しいDiscordの背景色
+                            embed: '#2b2d31',     // 埋め込みの背景
+                            text: '#dbdee1',      // 本文テキスト
+                            subtext: '#949ba4',   // タイムスタンプやフッター
+                            link: '#00a8fc',      // リンク色
+                            input: '#1e1f22',     // 入力欄
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'gg sans', 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        /* Discord風スクロールバー */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background-color: #2b2d31;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background-color: #1a1b1e;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body class="bg-discord-bg text-discord-text min-h-screen flex flex-col items-center py-10 px-4">
+
+    <!-- Header -->
+    <div class="max-w-2xl w-full text-center mb-8">
+        <h1 class="text-2xl font-bold mb-2 flex items-center justify-center gap-3 text-white">
+            <i class="fa-brands fa-discord"></i>
+            <span>Discord Style Preview</span>
+        </h1>
+        <p class="text-discord-subtext text-sm">Discordのようなカード形式でURLを表示します</p>
+    </div>
+
+    <!-- Input Section -->
+    <div class="max-w-2xl w-full mb-8">
+        <div class="flex gap-2">
+            <input type="text" id="urlInput" placeholder="https://x.com/i/broadcasts/..."
+                class="flex-1 bg-discord-input text-discord-text border-none rounded px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-gray-600"
+                value="https://x.com/i/broadcasts/1YqKDNopRVYJV">
+            <button onclick="fetchMetaData()"
+                class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-6 rounded transition-colors">
+                表示
+            </button>
+        </div>
+    </div>
+
+    <!-- Preview Area (Chat Interface) -->
+    <div class="max-w-2xl w-full flex gap-4">
+        <!-- Avatar -->
+        <div class="flex-shrink-0">
+            <div class="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold">
+                <i class="fa-solid fa-robot"></i>
+            </div>
+        </div>
+
+        <!-- Message Content -->
+        <div class="flex-1">
+            <!-- User Info -->
+            <div class="flex items-baseline gap-2 mb-1">
+                <span class="font-medium text-white hover:underline cursor-pointer">PreviewBot</span>
+                <span class="bg-indigo-500 text-white text-[10px] px-1 rounded uppercase font-bold pt-[1px]">BOT</span>
+                <span class="text-xs text-discord-subtext ml-1">Today at 12:00 PM</span>
+            </div>
+
+            <!-- The Link Text -->
+            <div id="linkText" class="text-discord-link hover:underline cursor-pointer mb-2 break-all hidden"></div>
+
+            <!-- The Embed Card -->
+            <div id="embedCard" class="bg-discord-embed border-l-4 border-[#1DA1F2] rounded-r p-4 max-w-md hidden">
+                <!-- Loader inside card -->
+                <div id="loader" class="flex flex-col gap-2 animate-pulse">
+                    <div class="h-4 bg-gray-700 rounded w-3/4"></div>
+                    <div class="h-4 bg-gray-700 rounded w-1/2"></div>
+                    <div class="h-32 bg-gray-700 rounded w-full mt-2"></div>
+                </div>
+
+                <!-- Content -->
+                <div id="cardContent" class="hidden flex flex-col gap-2">
+                    <!-- Provider (e.g., X) -->
+                    <div class="text-xs text-discord-subtext font-medium flex items-center gap-1">
+                        <span>X (Formerly Twitter)</span>
+                    </div>
+
+                    <!-- Title -->
+                    <a id="cardTitle" href="#" target="_blank"
+                        class="text-discord-link font-semibold hover:underline block">
+                        <!-- Title inserted via JS -->
+                    </a>
+
+                    <!-- Description -->
+                    <p id="cardDesc" class="text-sm text-discord-text leading-relaxed">
+                        <!-- Description inserted via JS -->
+                    </p>
+
+                    <!-- Large Image -->
+                    <div id="cardImageContainer" class="mt-1 rounded-lg overflow-hidden border border-[#1e1f22]">
+                        <img id="cardImage" src="" alt="Thumbnail" class="w-full h-auto object-cover max-h-[300px]">
+                    </div>
+
+                    <!-- Footer Info (Likes/Retweets simulated) -->
+                    <div class="mt-1 flex gap-4 text-xs text-discord-subtext">
+                        <span class="flex items-center gap-1"><i class="fa-regular fa-heart"></i> <span
+                                id="likes">--</span></span>
+                        <span class="flex items-center gap-1"><i class="fa-solid fa-retweet"></i> <span
+                                id="rts">--</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Error Message -->
+            <div id="errorMessage" class="hidden text-red-400 text-sm mt-2">
+                情報を取得できませんでした。<br>
+                <span class="text-xs text-discord-subtext">※ブロードキャストや一部のURLは外部API経由での取得が制限されている場合があります。</span>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        async function fetchMetaData() {
+            const urlInput = document.getElementById('urlInput');
+            const targetUrl = urlInput.value.trim();
+
+            if (!targetUrl) return;
+
+            // UI Reset
+            document.getElementById('linkText').textContent = targetUrl;
+            document.getElementById('linkText').classList.remove('hidden');
+
+            const embedCard = document.getElementById('embedCard');
+            const loader = document.getElementById('loader');
+            const content = document.getElementById('cardContent');
+            const errorMsg = document.getElementById('errorMessage');
+
+            embedCard.classList.remove('hidden');
+            loader.classList.remove('hidden');
+            content.classList.add('hidden');
+            errorMsg.classList.add('hidden');
+
+            try {
+                // Microlink APIを使用してメタデータを取得 (無料枠・登録不要)
+                // X (Twitter) はスクレイピング対策が厳しいため、APIが必須です
+                const apiUrl = `https://api.microlink.io/?url=${encodeURIComponent(targetUrl)}&palette=true`;
+
+                const response = await fetch(apiUrl);
+                const json = await response.json();
+
+                if (json.status === 'success') {
+                    const data = json.data;
+
+                    // Update UI
+                    document.getElementById('cardTitle').textContent = data.title || 'No Title';
+                    document.getElementById('cardTitle').href = data.url;
+
+                    document.getElementById('cardDesc').textContent = data.description || '';
+
+                    if (data.image && data.image.url) {
+                        document.getElementById('cardImage').src = data.image.url;
+                        document.getElementById('cardImageContainer').classList.remove('hidden');
+                    } else {
+                        document.getElementById('cardImageContainer').classList.add('hidden');
+                    }
+
+                    // 疑似的なstats (APIからは取得できないことが多いためランダムまたは固定で雰囲気を出します)
+                    // ※実際のDiscordはこれらを表示しませんが、Twitter埋め込みっぽさを出す演出です
+                    document.getElementById('likes').textContent = Math.floor(Math.random() * 500) + ' likes';
+                    document.getElementById('rts').textContent = Math.floor(Math.random() * 100) + ' reposts';
+
+                    loader.classList.add('hidden');
+                    content.classList.remove('hidden');
+                } else {
+                    throw new Error('API Error');
+                }
+
+            } catch (error) {
+                console.error(error);
+                loader.classList.add('hidden');
+                errorMsg.classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+
+</html>

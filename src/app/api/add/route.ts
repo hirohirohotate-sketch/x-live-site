@@ -6,6 +6,7 @@ import {
     normalizeUsername,
     parseTags,
 } from '@/lib/broadcastUtils';
+import { fetchPreview } from '@/lib/preview/fetchPreview';
 import type { AddBroadcastFormData, AddBroadcastResponse } from '@/types/add';
 
 export async function POST(request: NextRequest) {
@@ -43,7 +44,27 @@ export async function POST(request: NextRequest) {
 
         const supabase = await createSupabaseServerClient();
 
-        // 4. broadcasts upsert
+        // 4. Preview取得（非同期・エラーでも続行）
+        console.log(`[AddAPI] Fetching preview for ${normalizedUrl}`);
+        const previewResult = await fetchPreview(normalizedUrl).catch(err => {
+            console.error('[AddAPI] Preview fetch error:', err);
+            return {
+                title: null,
+                description: null,
+                imageUrl: null,
+                site: 'unknown' as const,
+                status: 'fail' as const
+            };
+        });
+
+        console.log(`[AddAPI] Preview result:`, {
+            status: previewResult.status,
+            hasTitle: !!previewResult.title,
+            hasImage: !!previewResult.imageUrl,
+            site: previewResult.site
+        });
+
+        // 5. broadcasts upsert（previewデータ含む）
         const { error: broadcastError } = await supabase.from('broadcasts').upsert(
             {
                 broadcast_id: broadcastId,
@@ -51,6 +72,13 @@ export async function POST(request: NextRequest) {
                 x_username: normalizedUsername,
                 source: 'manual',
                 last_seen_at: new Date().toISOString(),
+                // Preview data
+                preview_title: previewResult.title,
+                preview_description: previewResult.description,
+                preview_image_url: previewResult.imageUrl,
+                preview_site: previewResult.site,
+                preview_fetch_status: previewResult.status,
+                preview_fetched_at: new Date().toISOString(),
             },
             {
                 onConflict: 'broadcast_id',
@@ -69,7 +97,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // 5. broadcasters insert（x_username がある場合のみ）
+        // 6. broadcasters insert（x_username がある場合のみ）
         if (normalizedUsername) {
             const { error: broadcasterError } = await supabase
                 .from('broadcasters')
@@ -88,7 +116,7 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // 6. broadcast_notes insert（note_body または tags がある場合）
+        // 7. broadcast_notes insert（note_body または tags がある場合）
         let noteSaved = false;
         let warning: string | undefined;
 
@@ -115,7 +143,7 @@ export async function POST(request: NextRequest) {
             noteSaved = true; // メモがない場合は成功扱い
         }
 
-        // 7. レスポンス
+        // 8. レスポンス
         const response: AddBroadcastResponse = {
             success: true,
             broadcast_id: broadcastId,
