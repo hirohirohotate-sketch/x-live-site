@@ -136,12 +136,13 @@ export default function BroadcastCard({ broadcast }: BroadcastCardProps) {
                 {uniqueTags.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-2">
                         {uniqueTags.map((tag, idx) => (
-                            <span
+                            <Link
                                 key={idx}
-                                className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-md"
+                                href={`/t/${encodeURIComponent(tag)}`}
+                                className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-md hover:bg-blue-100 hover:text-blue-700 transition-colors"
                             >
                                 #{tag}
-                            </span>
+                            </Link>
                         ))}
                     </div>
                 )}
