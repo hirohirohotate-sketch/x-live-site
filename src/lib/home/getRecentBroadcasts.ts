@@ -3,6 +3,7 @@ import type { BroadcastWithNotes, TimeFilter } from '@/types/home';
 
 interface GetRecentBroadcastsOptions {
     limit?: number;
+    offset?: number;
     usernameFilter?: string;
     timeFilter?: TimeFilter;
 }
@@ -12,8 +13,8 @@ interface GetRecentBroadcastsOptions {
  */
 export async function getRecentBroadcasts(
     options: GetRecentBroadcastsOptions = {}
-): Promise<BroadcastWithNotes[]> {
-    const { limit = 30, usernameFilter, timeFilter = 'all' } = options;
+): Promise<{ broadcasts: BroadcastWithNotes[]; count: number | null }> {
+    const { limit = 20, offset = 0, usernameFilter, timeFilter = 'all' } = options;
 
     const supabase = await createSupabaseServerClient();
 
@@ -26,16 +27,17 @@ export async function getRecentBroadcasts(
             x_username, 
             published_at, 
             first_seen_at,
+            added_by_user_id,
             preview_title,
             preview_description,
             preview_image_url,
             preview_site,
             preview_fetch_status,
             preview_fetched_at
-        `)
+        `, { count: 'exact' })
         .order('published_at', { ascending: false, nullsFirst: false })
         .order('first_seen_at', { ascending: false })
-        .limit(limit);
+
 
     // username フィルタ
     if (usernameFilter) {
@@ -51,22 +53,25 @@ export async function getRecentBroadcasts(
         query = query.or(`published_at.gte.${since},first_seen_at.gte.${since}`);
     }
 
-    const { data: broadcasts, error: broadcastsError } = await query;
+    // Pagination
+    query = query.range(offset, offset + limit - 1);
+
+    const { data: broadcasts, error: broadcastsError, count } = await query;
 
     if (broadcastsError) {
         console.error('Error fetching broadcasts:', broadcastsError);
-        return [];
+        return { broadcasts: [], count: 0 };
     }
 
     if (!broadcasts || broadcasts.length === 0) {
-        return [];
+        return { broadcasts: [], count: 0 };
     }
 
     // 2) broadcast_notesをまとめて取得（N+1回避）
     const broadcastIds = broadcasts.map((b) => b.broadcast_id);
     const { data: notes, error: notesError } = await supabase
         .from('broadcast_notes')
-        .select('id, broadcast_id, title, body, tags')
+        .select('id, broadcast_id, title, body, tags, author_user_id, created_at')
         .in('broadcast_id', broadcastIds);
 
     if (notesError) {
@@ -90,8 +95,13 @@ export async function getRecentBroadcasts(
             title: n.title,
             body: n.body,
             tags: n.tags || [],
+            author_user_id: n.author_user_id,
+            created_at: n.created_at,
         })),
     }));
 
-    return result;
+    return {
+        broadcasts: result,
+        count,
+    };
 }

@@ -5,15 +5,31 @@ import {
     normalizeBroadcastUrl,
     normalizeUsername,
     parseTags,
+    extractUsernameFromText,
 } from '@/lib/broadcastUtils';
 import { fetchPreview } from '@/lib/preview/fetchPreview';
 import type { AddBroadcastFormData, AddBroadcastResponse } from '@/types/add';
 
 export async function POST(request: NextRequest) {
     try {
+        const supabase = await createSupabaseServerClient();
+
+        // 1. Check authentication (REQUIRED)
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+        if (authError || !user) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'Authentication required. Please log in.',
+                } as AddBroadcastResponse,
+                { status: 401 }
+            );
+        }
+
         const body: AddBroadcastFormData = await request.json();
 
-        // 1. 入力検証
+        // 2. 入力検証
         if (!body.broadcast_url) {
             return NextResponse.json(
                 {
@@ -24,7 +40,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // 2. broadcast_id 抽出
+        // 3. broadcast_id 抽出
         const broadcastId = extractBroadcastId(body.broadcast_url);
         if (!broadcastId) {
             return NextResponse.json(
@@ -37,41 +53,90 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // 3. データ正規化
+        // 4. データ正規化
         const normalizedUrl = normalizeBroadcastUrl(broadcastId);
-        const normalizedUsername = normalizeUsername(body.x_username);
+        let normalizedUsername = normalizeUsername(body.x_username);
         const tags = parseTags(body.tags);
 
-        const supabase = await createSupabaseServerClient();
+        // 5. Check if broadcast exists (lookup by broadcast_id)
+        const { data: existingBroadcast } = await supabase
+            .from('broadcasts')
+            .select('id, broadcast_id, added_by_user_id, x_username')
+            .eq('broadcast_id', broadcastId)
+            .single();
 
-        // 4. Preview取得（非同期・エラーでも続行）
-        console.log(`[AddAPI] Fetching preview for ${normalizedUrl}`);
-        const previewResult = await fetchPreview(normalizedUrl).catch(err => {
-            console.error('[AddAPI] Preview fetch error:', err);
-            return {
-                title: null,
-                description: null,
-                imageUrl: null,
-                site: 'unknown' as const,
-                status: 'fail' as const
-            };
-        });
+        let claimed: boolean = false;
 
-        console.log(`[AddAPI] Preview result:`, {
-            status: previewResult.status,
-            hasTitle: !!previewResult.title,
-            hasImage: !!previewResult.imageUrl,
-            site: previewResult.site
-        });
+        if (existingBroadcast) {
+            // Existing broadcast - try to claim if unclaimed
+            if (!existingBroadcast.added_by_user_id) {
+                // Conditional UPDATE (concurrency-safe)
+                const { data: updateResult } = await supabase
+                    .from('broadcasts')
+                    .update({
+                        added_by_user_id: user.id,
+                        x_username: normalizedUsername || existingBroadcast.x_username,
+                        last_seen_at: new Date().toISOString(),
+                    })
+                    .eq('broadcast_id', broadcastId)
+                    .eq('added_by_user_id', null) // Only if still unclaimed
+                    .select();
 
-        // 5. broadcasts upsert（previewデータ含む）
-        const { error: broadcastError } = await supabase.from('broadcasts').upsert(
-            {
+                claimed = !!(updateResult && updateResult.length > 0);
+            }
+        } else {
+            // 6. Preview取得（非同期・エラーでも続行）
+            console.log(`[AddAPI] Fetching preview for ${normalizedUrl}`);
+            const previewResult = await fetchPreview(normalizedUrl).catch(err => {
+                console.error('[AddAPI] Preview fetch error:', err);
+                return {
+                    title: null,
+                    description: null,
+                    imageUrl: null,
+                    site: 'unknown' as const,
+                    status: 'fail' as const,
+                    author: null
+                };
+            });
+
+            console.log(`[AddAPI] Preview result:`, {
+                status: previewResult.status,
+                hasTitle: !!previewResult.title,
+                hasImage: !!previewResult.imageUrl,
+                site: previewResult.site
+            });
+
+            // Extract username if missing
+            if (!normalizedUsername) {
+                // Try title first (often contains "Name (@handle)" format)
+                normalizedUsername = extractUsernameFromText(previewResult.title);
+
+                // Fallback to author
+                if (!normalizedUsername) {
+                    normalizedUsername = extractUsernameFromText(previewResult.author);
+                }
+            }
+
+            // Ensure username is present
+            if (!normalizedUsername) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: 'Could not detect username. Please enter manually.',
+                    } as AddBroadcastResponse,
+                    { status: 400 }
+                );
+            }
+
+            // 7. New broadcast - insert with user ID
+            const { error: broadcastError } = await supabase.from('broadcasts').insert({
                 broadcast_id: broadcastId,
                 broadcast_url: normalizedUrl,
                 x_username: normalizedUsername,
                 source: 'manual',
+                first_seen_at: new Date().toISOString(),
                 last_seen_at: new Date().toISOString(),
+                added_by_user_id: user.id, // Track who added it
                 // Preview data
                 preview_title: previewResult.title,
                 preview_description: previewResult.description,
@@ -79,22 +144,20 @@ export async function POST(request: NextRequest) {
                 preview_site: previewResult.site,
                 preview_fetch_status: previewResult.status,
                 preview_fetched_at: new Date().toISOString(),
-            },
-            {
-                onConflict: 'broadcast_id',
-                ignoreDuplicates: false,
-            }
-        );
+            });
 
-        if (broadcastError) {
-            console.error('Error upserting broadcast:', broadcastError);
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Failed to save broadcast',
-                } as AddBroadcastResponse,
-                { status: 500 }
-            );
+            if (broadcastError) {
+                console.error('Error inserting broadcast:', broadcastError);
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: 'Failed to save broadcast',
+                    } as AddBroadcastResponse,
+                    { status: 500 }
+                );
+            }
+
+            claimed = true; // New broadcast is automatically claimed
         }
 
         // 6. broadcasters insert（x_username がある場合のみ）
@@ -125,7 +188,7 @@ export async function POST(request: NextRequest) {
                 .from('broadcast_notes')
                 .insert({
                     broadcast_id: broadcastId,
-                    author_user_id: null,
+                    author_user_id: user.id, // Track note author
                     title: '',
                     body: body.note_body || '',
                     tags: tags,

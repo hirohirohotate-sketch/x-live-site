@@ -9,7 +9,6 @@ export default function AddPage() {
     const [formData, setFormData] = useState<AddBroadcastFormData>({
         broadcast_url: '',
         x_username: '',
-        note_body: '',
         tags: '',
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -39,7 +38,6 @@ export default function AddPage() {
                 setFormData({
                     broadcast_url: '',
                     x_username: '',
-                    note_body: '',
                     tags: '',
                 });
             } else {
@@ -93,12 +91,18 @@ export default function AddPage() {
                         </div>
 
                         {/* x_username */}
-                        <div>
+
+
+                        {/* note_body */}
+
+
+                        {/* x_username (Required) */}
+                        <div className="mb-4">
                             <label
                                 htmlFor="x_username"
                                 className="block text-sm font-medium text-gray-700 mb-2"
                             >
-                                配信者のユーザー名（任意）
+                                配信者のユーザー名
                             </label>
                             <input
                                 type="text"
@@ -109,26 +113,7 @@ export default function AddPage() {
                                 }
                                 placeholder="@username または username"
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
-
-                        {/* note_body */}
-                        <div>
-                            <label
-                                htmlFor="note_body"
-                                className="block text-sm font-medium text-gray-700 mb-2"
-                            >
-                                メモ（任意）
-                            </label>
-                            <textarea
-                                id="note_body"
-                                value={formData.note_body}
-                                onChange={(e) =>
-                                    setFormData({ ...formData, note_body: e.target.value })
-                                }
-                                placeholder="この配信についてのメモ..."
-                                rows={4}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
                             />
                         </div>
 

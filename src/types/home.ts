@@ -9,6 +9,7 @@ export interface BroadcastItem {
     x_username: string | null;
     published_at: string | null;
     first_seen_at: string;
+    added_by_user_id?: string | null; // User who added the broadcast
 
     // Previews
     preview_title?: string | null;
@@ -27,6 +28,8 @@ export interface BroadcastNote {
     title: string | null;
     body: string;
     tags: string[];
+    author_user_id?: string | null; // Optional to support legacy notes
+    created_at?: string;
 }
 
 // broadcastとnotesを結合した型（ホーム画面での表示用）

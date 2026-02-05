@@ -1,68 +1,99 @@
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { getUserShelf } from '@/lib/user/getUserShelf';
+import BroadcastCard from '@/components/BroadcastCard';
 
-export default async function MePage() {
-    const supabase = await createSupabaseServerClient()
-    const { data: { user }, error } = await supabase.auth.getUser()
+export default async function MyPage() {
+    const supabase = await createSupabaseServerClient();
+
+    // Check authentication with returnTo redirect
+    const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error || !user) {
-        return (
-            <div className="max-w-4xl mx-auto px-4 py-8">
-                <h1 className="text-2xl font-bold mb-4">User Info</h1>
-                <p className="text-gray-600">Not logged in</p>
-            </div>
-        )
+        redirect('/login?returnTo=/me');
     }
 
-    // Find Twitter/X identity from user.identities
-    const twitterIdentity = user.identities?.find(
-        (identity) => identity.provider === 'twitter' || identity.provider === 'x'
-    )
+    // Fetch user's shelf
+    const { addedBroadcasts, contributedBroadcasts } = await getUserShelf(user.id);
 
     return (
-        <div className="max-w-4xl mx-auto px-4 py-8">
-            <h1 className="text-2xl font-bold mb-6">User Info</h1>
-
-            <div className="space-y-6">
-                <section className="bg-gray-50 p-4 rounded-lg">
-                    <h2 className="font-semibold mb-2">Basic Info</h2>
-                    <div className="space-y-1 text-sm">
-                        <p><strong>User ID:</strong> {user.id}</p>
-                        <p><strong>Email:</strong> {user.email || 'N/A'}</p>
-                        <p><strong>Created:</strong> {new Date(user.created_at).toLocaleString()}</p>
-                    </div>
-                </section>
-
-                {twitterIdentity ? (
-                    <section className="bg-blue-50 p-4 rounded-lg">
-                        <h2 className="font-semibold mb-2">X (Twitter) Identity</h2>
-                        <div className="space-y-2">
-                            <p className="text-sm"><strong>Provider:</strong> {twitterIdentity.provider}</p>
-                            <p className="text-sm"><strong>Identity ID:</strong> {twitterIdentity.id}</p>
-                            <details className="mt-2">
-                                <summary className="cursor-pointer text-sm font-medium text-blue-700 hover:text-blue-800">
-                                    View Full Identity Data (JSON)
-                                </summary>
-                                <pre className="mt-2 p-3 bg-white rounded border border-gray-200 text-xs overflow-x-auto">
-                                    {JSON.stringify(twitterIdentity, null, 2)}
-                                </pre>
-                            </details>
-                        </div>
-                    </section>
-                ) : (
-                    <section className="bg-yellow-50 p-4 rounded-lg">
-                        <p className="text-sm text-yellow-800">No Twitter/X identity found</p>
-                    </section>
-                )}
-
-                <details className="bg-gray-50 p-4 rounded-lg">
-                    <summary className="cursor-pointer font-semibold hover:text-gray-700">
-                        View Full User Object (JSON)
-                    </summary>
-                    <pre className="mt-2 p-3 bg-white rounded border border-gray-200 text-xs overflow-x-auto">
-                        {JSON.stringify(user, null, 2)}
-                    </pre>
-                </details>
+        <div className="min-h-screen bg-gray-50">
+            {/* Header */}
+            <div className="bg-white border-b border-gray-200">
+                <div className="max-w-7xl mx-auto px-4 py-6">
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">📚 My Shelf</h1>
+                    <p className="text-gray-600">あなたが育てた棚</p>
+                </div>
             </div>
+
+            {/* Section 1: Added Broadcasts */}
+            <section className="max-w-7xl mx-auto px-4 py-8">
+                <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+                    📝 Added by You ({addedBroadcasts.length})
+                </h2>
+
+                {addedBroadcasts.length === 0 ? (
+                    <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+                        <div className="text-6xl mb-4">📭</div>
+                        <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                            まだ何も追加していません
+                        </h3>
+                        <p className="text-gray-600 mb-6">
+                            最初のブロードキャストを追加してみましょう
+                        </p>
+                        <Link
+                            href="/add"
+                            className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                        >
+                            Add Broadcast
+                        </Link>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {addedBroadcasts.map(broadcast => (
+                            <BroadcastCard
+                                key={broadcast.broadcast_id}
+                                broadcast={broadcast}
+                            />
+                        ))}
+                    </div>
+                )}
+            </section>
+
+            {/* Section 2: Contributed Notes */}
+            <section className="max-w-7xl mx-auto px-4 py-8 pb-12">
+                <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+                    ✍️ Notes by You ({contributedBroadcasts.length})
+                </h2>
+
+                {contributedBroadcasts.length === 0 ? (
+                    <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+                        <div className="text-6xl mb-4">✏️</div>
+                        <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                            まだメモを書いていません
+                        </h3>
+                        <p className="text-gray-600 mb-6">
+                            ブロードキャストにメモを追加してみましょう
+                        </p>
+                        <Link
+                            href="/"
+                            className="inline-block px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                        >
+                            Browse Broadcasts
+                        </Link>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {contributedBroadcasts.map(broadcast => (
+                            <BroadcastCard
+                                key={broadcast.broadcast_id}
+                                broadcast={broadcast}
+                            />
+                        ))}
+                    </div>
+                )}
+            </section>
         </div>
-    )
+    );
 }

@@ -6,6 +6,7 @@ export type PreviewFetchResult = {
     imageUrl: string | null;
     site: 'x' | 'twitter' | 'other' | 'unknown';
     status: 'success' | 'partial' | 'fail';
+    author?: string | null;
 };
 
 const TIMEOUT_MS = 3000;
@@ -31,7 +32,7 @@ async function fetchPreviewWithMicrolink(targetUrl: string): Promise<PreviewFetc
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒に延長
 
     try {
-        const apiUrl = `https://api.microlink.io/?url=${encodeURIComponent(targetUrl)}`;
+        const apiUrl = `https://api.microlink.io/?url=${encodeURIComponent(targetUrl)}&prerender=true`;
 
         console.log(`[Microlink] Fetching: ${apiUrl}`);
 
@@ -72,7 +73,8 @@ async function fetchPreviewWithMicrolink(targetUrl: string): Promise<PreviewFetc
                 description: data.description || null,
                 imageUrl: data.image?.url || null,
                 site,
-                status
+                status,
+                author: data.author || null
             };
         }
 
@@ -91,7 +93,8 @@ async function fetchPreviewWithMicrolink(targetUrl: string): Promise<PreviewFetc
             description: null,
             imageUrl: null,
             site: targetUrl.includes('x.com') ? 'x' : 'twitter',
-            status: 'fail'
+            status: 'fail',
+            author: null
         };
     } finally {
         clearTimeout(timeoutId);
@@ -180,6 +183,8 @@ async function fetchPreviewDirect(targetUrl: string): Promise<PreviewFetchResult
         const twDesc = getMetaContent('twitter:description');
         const description = ogDesc || twDesc || getMetaContent('description') || null;
 
+        const author = getMetaContent('author') || getMetaContent('twitter:creator') || null;
+
         const ogImage = getMetaContent('og:image');
         const twImage = getMetaContent('twitter:image');
         let imageUrl = ogImage || twImage || null;
@@ -226,7 +231,8 @@ async function fetchPreviewDirect(targetUrl: string): Promise<PreviewFetchResult
             description,
             imageUrl,
             site,
-            status
+            status,
+            author
         };
 
     } catch (error) {
@@ -236,7 +242,8 @@ async function fetchPreviewDirect(targetUrl: string): Promise<PreviewFetchResult
             description: null,
             imageUrl: null,
             site: 'unknown',
-            status: 'fail'
+            status: 'fail',
+            author: null
         };
     } finally {
         clearTimeout(timeoutId);
