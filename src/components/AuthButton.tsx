@@ -11,6 +11,12 @@ export default function AuthButton() {
     const supabase = createSupabaseBrowserClient()
 
     useEffect(() => {
+        // SSR/プリレンダリング時はsupabaseがnullになる
+        if (!supabase) {
+            setLoading(false)
+            return
+        }
+
         supabase.auth.getUser().then(({ data: { user } }) => {
             setUser(user)
             setLoading(false)
@@ -23,10 +29,10 @@ export default function AuthButton() {
         })
 
         return () => subscription.unsubscribe()
-    }, [supabase.auth])
+    }, [supabase])
 
     const handleLogout = async () => {
-        await supabase.auth.signOut()
+        await supabase?.auth.signOut()
     }
 
     if (loading) {
