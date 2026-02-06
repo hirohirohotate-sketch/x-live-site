@@ -58,7 +58,9 @@ export default async function Home({ searchParams }: HomeProps) {
 
             {/* Pagination */}
             {count !== null && count > 0 && (
-              <Pagination totalCount={count} currentPage={page} limit={limit} />
+              <Suspense fallback={null}>
+                <Pagination totalCount={count} currentPage={page} limit={limit} />
+              </Suspense>
             )}
           </div>
         )}

@@ -1,14 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 
 type Tab = 'login' | 'signup';
 
 export default function LoginPage() {
     const router = useRouter();
-    const searchParams = useSearchParams();
     const [tab, setTab] = useState<Tab>('login');
 
     // フォーム状態
@@ -100,8 +99,8 @@ export default function LoginPage() {
                     <button
                         onClick={() => setTab('login')}
                         className={`flex-1 py-3 text-sm font-medium transition-colors ${tab === 'login'
-                                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
-                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                            ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
+                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                             }`}
                     >
                         ログイン
@@ -109,8 +108,8 @@ export default function LoginPage() {
                     <button
                         onClick={() => setTab('signup')}
                         className={`flex-1 py-3 text-sm font-medium transition-colors ${tab === 'signup'
-                                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
-                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                            ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
+                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                             }`}
                     >
                         新規登録
@@ -122,8 +121,8 @@ export default function LoginPage() {
                     {message && (
                         <div
                             className={`p-4 rounded-lg text-sm ${message.type === 'success'
-                                    ? 'bg-green-50 text-green-700 border border-green-200'
-                                    : 'bg-red-50 text-red-700 border border-red-200'
+                                ? 'bg-green-50 text-green-700 border border-green-200'
+                                : 'bg-red-50 text-red-700 border border-red-200'
                                 }`}
                         >
                             {message.text}
