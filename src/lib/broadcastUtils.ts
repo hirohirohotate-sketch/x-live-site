@@ -17,7 +17,7 @@ export function normalizeBroadcastUrl(broadcastId: string): string {
 /**
  * username を正規化（trim → @除去 → 小文字化 → 空ならnull）
  */
-export function normalizeUsername(username: string | undefined): string | null {
+export function normalizeUsername(username: string | undefined | null): string | null {
     if (!username) return null;
 
     const trimmed = username.trim();
@@ -27,6 +27,34 @@ export function normalizeUsername(username: string | undefined): string | null {
     const normalized = withoutAt.toLowerCase();
 
     return normalized || null;
+}
+
+/**
+ * テキストから username を抽出
+ * 対応フォーマット:
+ * - "Name (@username)"
+ * - "@username"
+ * - "username"
+ */
+export function extractUsernameFromText(text: string | null | undefined): string | null {
+    if (!text) return null;
+
+    // 1. "(@username)" pattern (common in OGP)
+    const parenMatch = text.match(/\(@([a-zA-Z0-9_]+)\)/);
+    if (parenMatch) return normalizeUsername(parenMatch[1]);
+
+    // 2. "@username" at start
+    if (text.trim().startsWith('@')) {
+        const atMatch = text.trim().match(/^@([a-zA-Z0-9_]+)/);
+        if (atMatch) return normalizeUsername(atMatch[1]);
+    }
+
+    // 3. Just username (alphanumeric + underscore only)
+    if (/^[a-zA-Z0-9_]+$/.test(text.trim())) {
+        return normalizeUsername(text);
+    }
+
+    return null;
 }
 
 /**

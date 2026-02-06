@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
                 status: 200,
                 headers: {
                     'Content-Type': contentType,
-                    'Cache-Control': 'public, s-maxage=86400, max-age=86400', // 1 day
+                    'Cache-Control': 'public, s-maxage=2592000, max-age=2592000', // 30 days
                     'Access-Control-Allow-Origin': '*', // Allow use in <img> tags cleanly
                 }
             });

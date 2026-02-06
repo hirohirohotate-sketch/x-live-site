@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AuthButton from "@/components/AuthButton";
@@ -30,8 +31,26 @@ export default function RootLayout({
       >
         <header className="border-b border-gray-200 bg-white">
           <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-            <h1 className="text-xl font-bold">LiveShelf</h1>
-            <AuthButton />
+            <Link href="/" className="text-xl font-bold hover:text-gray-700 transition-colors">
+              LiveShelf
+            </Link>
+            <div className="flex items-center gap-6">
+              <nav className="flex items-center gap-4 hidden sm:flex">
+                <Link
+                  href="/add"
+                  className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  アーカイブ追加
+                </Link>
+                <Link
+                  href="/me"
+                  className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  自分の棚
+                </Link>
+              </nav>
+              <AuthButton />
+            </div>
           </div>
         </header>
         {children}
