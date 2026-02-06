@@ -26,13 +26,13 @@ export default function LoginPage() {
 
         try {
             if (tab === 'signup') {
-                const { error } = await supabase.auth.signUp({
+                const { error } = await supabase?.auth.signUp({
                     email,
                     password,
                     options: {
                         emailRedirectTo: `${window.location.origin}/auth/callback`,
                     },
-                });
+                }) ?? { error: new Error("Supabase client not initialized") };
 
                 if (error) throw error;
 
@@ -41,10 +41,10 @@ export default function LoginPage() {
                     text: '確認メールを送信しました。メール内のリンクをクリックしてください。',
                 });
             } else {
-                const { error } = await supabase.auth.signInWithPassword({
+                const { error } = await supabase?.auth.signInWithPassword({
                     email,
                     password,
-                });
+                }) ?? { error: new Error("Supabase client not initialized") };
 
                 if (error) throw error;
 
@@ -66,12 +66,12 @@ export default function LoginPage() {
     const handleXLogin = async () => {
         try {
             setLoading(true);
-            const { error } = await supabase.auth.signInWithOAuth({
+            const { error } = await supabase?.auth.signInWithOAuth({
                 provider: 'x',
                 options: {
                     redirectTo: `${window.location.origin}/auth/callback`,
                 },
-            });
+            }) ?? { error: new Error("Supabase client not initialized") };
 
             if (error) throw error;
         } catch (err: any) {
